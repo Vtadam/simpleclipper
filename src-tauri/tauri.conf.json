@@ -1,0 +1,49 @@
+{
+  "productName": "SimpleClipper",
+  "version": "0.1.0",
+  "identifier": "com.simpleclipper",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/tray-idle.png",
+      "iconAsTemplate": false
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "SimpleClipper",
+        "width": 320,
+        "height": 460,
+        "resizable": false,
+        "decorations": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "center": false,
+        "x": 9999,
+        "y": 9999,
+        "alwaysOnTop": true,
+        "shadow": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "SimpleClipper"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+src-tauri/target/
+
+# FFmpeg binaries — run scripts/setup-ffmpeg.ps1 to populate
+src-tauri/ffmpeg/*.dll
+src-tauri/ffmpeg/include/
+src-tauri/ffmpeg/lib/
