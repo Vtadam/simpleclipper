@@ -24,7 +24,7 @@ export function WizardShell({ step, totalSteps, children }: WizardShellProps) {
           </motion.div>
         </AnimatePresence>
       </div>
-      <div className="flex justify-center gap-2 pb-8">
+      <div className="flex justify-center gap-2 pb-4">
         {Array.from({ length: totalSteps }).map((_, i) => (
           <div
             key={i}

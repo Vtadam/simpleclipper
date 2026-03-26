@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "../shared/Button";
-import { openFolderDialog } from "../../lib/tauri";
+import { openFolderDialog, getDefaultSaveFolder } from "../../lib/tauri";
 
 interface Props {
   folder: string;
@@ -12,15 +12,27 @@ interface Props {
 export function StepSaveFolder({ folder, onFolderChange, onNext }: Props) {
   const [picking, setPicking] = useState(false);
 
+  // Auto-populate with the default save folder if not already set
+  useEffect(() => {
+    if (!folder) {
+      getDefaultSaveFolder().then((defaultFolder) => {
+        onFolderChange(defaultFolder);
+      }).catch(() => {});
+    }
+  }, []);
+
   const pick = async () => {
     setPicking(true);
-    const result = await openFolderDialog();
-    if (result) onFolderChange(result);
-    setPicking(false);
+    try {
+      const result = await openFolderDialog();
+      if (result) onFolderChange(result);
+    } finally {
+      setPicking(false);
+    }
   };
 
   return (
-    <div className="flex flex-col flex-1 px-5 py-6 gap-5">
+    <div className="flex flex-col flex-1 px-5 py-4 gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)] mb-1">
           Step 1 of 4
@@ -29,7 +41,7 @@ export function StepSaveFolder({ folder, onFolderChange, onNext }: Props) {
           Where should we save your clips?
         </h2>
         <p className="text-[var(--text-muted)] text-xs">
-          Pick a folder. All your clips will be saved here automatically.
+          Pick a folder or use the default. All your clips will be saved here.
         </p>
       </div>
 
@@ -46,11 +58,11 @@ export function StepSaveFolder({ folder, onFolderChange, onNext }: Props) {
           <div className="min-w-0 flex-1">
             <p className="text-xs text-[var(--text-muted)] mb-0.5">Save clips to</p>
             <p className="text-xs font-medium text-[var(--text)] truncate">
-              {folder || "Click to choose a folder..."}
+              {folder || "Loading default..."}
             </p>
           </div>
           <span className="text-[var(--text-muted)] text-xs flex-shrink-0">
-            {picking ? "..." : "Browse →"}
+            {picking ? "..." : "Change"}
           </span>
         </motion.button>
       </div>

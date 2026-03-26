@@ -22,7 +22,9 @@ export function KeybindTable({ keybinds, onChange }: Props) {
     setCapturingIndex(idx);
     try {
       const shortcut = await captureNextKeypress();
-      onChange(keybinds.map((k, i) => (i === idx ? { ...k, shortcut } : k)));
+      if (shortcut) {
+        onChange(keybinds.map((k, i) => (i === idx ? { ...k, shortcut } : k)));
+      }
     } finally {
       setCapturingIndex(null);
     }

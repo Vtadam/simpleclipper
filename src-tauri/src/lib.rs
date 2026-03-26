@@ -50,6 +50,7 @@ pub fn run() {
             commands::handlers::get_config,
             commands::handlers::save_config,
             commands::handlers::open_folder_dialog,
+            commands::handlers::get_default_save_folder,
             commands::handlers::open_file_in_explorer,
             commands::handlers::get_clips_list,
             commands::handlers::start_capture,

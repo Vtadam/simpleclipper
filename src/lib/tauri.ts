@@ -44,14 +44,6 @@ const mockClips: ClipMeta[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
     name: "clip_20250325_141500_60s",
   },
-  {
-    path: "C:\\Users\\You\\Videos\\SimpleClipper\\clip_20250325_133022_300s.mp4",
-    thumbnail_b64: null,
-    duration_secs: 300,
-    size_bytes: 290_000_000,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    name: "clip_20250325_133022_300s",
-  },
 ];
 
 // ── Tauri invoke/listen wrappers ──────────────────────────────────────────────
@@ -75,7 +67,6 @@ async function lst<T>(
     const unlisten = await listen<T>(event, (e) => _cb(e.payload));
     return unlisten;
   }
-  // In browser: return a no-op unlistener
   return () => {};
 }
 
@@ -95,10 +86,14 @@ export const saveConfig = async (config: AppConfig): Promise<void> => {
 
 export const openFolderDialog = async (): Promise<string | null> => {
   if (!isTauri) {
-    // Simulate a folder pick
     return "C:\\Users\\You\\Videos\\SimpleClipper";
   }
   return inv<string | null>("open_folder_dialog");
+};
+
+export const getDefaultSaveFolder = async (): Promise<string> => {
+  if (!isTauri) return "C:\\Users\\You\\Videos\\SimpleClipper";
+  return inv<string>("get_default_save_folder");
 };
 
 export const openFileInExplorer = async (path: string): Promise<void> => {
@@ -136,28 +131,58 @@ export const registerKeybinds = async (entries: KeybindEntry[]): Promise<void> =
 };
 
 /**
- * Capture the next keypress using DOM events only.
- * This always uses the DOM approach regardless of Tauri/browser context
- * because the Rust backend no longer implements this functionality.
+ * Capture the next keypress using DOM events.
+ *
+ * Accepts:
+ *  - Function keys alone (F1-F24)
+ *  - Any key with at least one modifier (Ctrl/Shift/Alt)
+ *  - Special keys alone (PrintScreen, Pause, ScrollLock, Insert, Delete, Home, End, PageUp, PageDown)
  */
-export const captureNextKeypress = async (): Promise<string> => {
+export const captureNextKeypress = (): Promise<string | null> => {
   return new Promise((resolve) => {
     const handler = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      const key = e.key;
+
+      // Ignore bare modifier presses — wait for a real key
+      if (["Control", "Shift", "Alt", "Meta"].includes(key)) {
+        return;
+      }
+
+      // Escape cancels capture
+      if (key === "Escape") {
+        window.removeEventListener("keydown", handler, true);
+        resolve(null);
+        return;
+      }
+
       const parts: string[] = [];
       if (e.ctrlKey) parts.push("Ctrl");
       if (e.shiftKey) parts.push("Shift");
       if (e.altKey) parts.push("Alt");
-      const key = e.key;
-      if (!["Control", "Shift", "Alt", "Meta"].includes(key)) {
-        parts.push(key.length === 1 ? key.toUpperCase() : key);
+
+      // Normalize the key name
+      let keyName = key;
+      if (key.length === 1) {
+        keyName = key.toUpperCase();
       }
-      if (parts.length >= 2) {
+
+      parts.push(keyName);
+
+      // Accept: function keys alone, special keys alone, or any key with modifier
+      const isFunctionKey = /^F\d{1,2}$/.test(keyName);
+      const isSpecialKey = ["PrintScreen", "Pause", "ScrollLock", "Insert", "Delete", "Home", "End", "PageUp", "PageDown"].includes(keyName);
+      const hasModifier = e.ctrlKey || e.shiftKey || e.altKey;
+
+      if (isFunctionKey || isSpecialKey || hasModifier) {
         window.removeEventListener("keydown", handler, true);
         resolve(parts.join("+"));
       }
+      // Otherwise ignore (bare letter/number with no modifier)
     };
+
     window.addEventListener("keydown", handler, true);
   });
 };

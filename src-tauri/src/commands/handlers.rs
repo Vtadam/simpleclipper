@@ -30,8 +30,27 @@ pub async fn save_config(
 
 #[tauri::command]
 pub async fn open_folder_dialog(app: AppHandle) -> Result<Option<String>, String> {
+    // Temporarily drop always-on-top so the OS dialog isn't hidden behind our window
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.set_always_on_top(false);
+    }
+
     let folder = app.dialog().file().blocking_pick_folder();
+
+    // Restore always-on-top
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.set_always_on_top(true);
+    }
+
     Ok(folder.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_default_save_folder() -> Result<String, String> {
+    let videos = dirs_next::video_dir()
+        .unwrap_or_else(|| dirs_next::home_dir().unwrap_or_default().join("Videos"));
+    let folder = videos.join("SimpleClipper");
+    Ok(folder.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -345,25 +364,18 @@ pub async fn get_windows_list() -> Result<Vec<WindowInfo>, String> {
         };
 
         // Shared mutable list passed via LPARAM to the EnumWindows callback.
-        // We use a raw pointer to Arc<Mutex<Vec<WindowInfo>>> for FFI compatibility.
         let windows_list: std::sync::Arc<parking_lot::Mutex<Vec<WindowInfo>>> =
             std::sync::Arc::new(parking_lot::Mutex::new(Vec::new()));
         let list_clone = windows_list.clone();
 
         // SAFETY: enum_proc is an `unsafe extern "system"` callback as required by EnumWindows.
-        // lparam contains a raw pointer to a parking_lot::Mutex<Vec<WindowInfo>> whose
-        // lifetime is guaranteed by the Arc kept alive on the stack above.
         unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-            // SAFETY: lparam is a raw pointer to parking_lot::Mutex<Vec<WindowInfo>>.
-            // It was created from a valid Arc and is alive for the duration of EnumWindows.
             let list = &*(lparam.0 as *const parking_lot::Mutex<Vec<WindowInfo>>);
 
-            // Skip invisible windows
             if !IsWindowVisible(hwnd).as_bool() {
                 return BOOL(1);
             }
 
-            // Get window title
             let mut title_buf = [0u16; 512];
             let len = GetWindowTextW(hwnd, &mut title_buf);
             if len == 0 {
@@ -377,10 +389,8 @@ pub async fn get_windows_list() -> Result<Vec<WindowInfo>, String> {
                 return BOOL(1);
             }
 
-            // Get the process name for this window
             let mut pid = 0u32;
             GetWindowThreadProcessId(hwnd, Some(&mut pid));
-
             let exe = get_process_name(pid);
 
             list.lock().push(WindowInfo {
@@ -392,8 +402,6 @@ pub async fn get_windows_list() -> Result<Vec<WindowInfo>, String> {
             BOOL(1)
         }
 
-        // SAFETY: EnumWindows is a safe Windows API. We pass a raw pointer to our
-        // Mutex which is kept alive by the Arc on the stack for the entire call duration.
         unsafe {
             EnumWindows(
                 Some(enum_proc),
@@ -415,15 +423,12 @@ pub async fn get_windows_list() -> Result<Vec<WindowInfo>, String> {
 fn get_process_name(pid: u32) -> String {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
-    use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::core::PWSTR;
 
-    // SAFETY: OpenProcess returns a handle that must be closed with CloseHandle.
-    // We close it in all code paths below.
     unsafe {
         let handle = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
             Ok(h) => h,
@@ -438,7 +443,7 @@ fn get_process_name(pid: u32) -> String {
             PWSTR(buf.as_mut_ptr()),
             &mut size,
         );
-        let _ = CloseHandle(handle);
+        let _ = windows::Win32::Foundation::CloseHandle(handle);
 
         if result.is_err() || size == 0 {
             return String::new();

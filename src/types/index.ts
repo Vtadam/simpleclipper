@@ -50,7 +50,6 @@ export const DEFAULT_KEYBINDS: KeybindEntry[] = [
   { duration_secs: 30, shortcut: null },
   { duration_secs: 60, shortcut: null },
   { duration_secs: 300, shortcut: null },
-  { duration_secs: 600, shortcut: null },
 ];
 
 export const DURATION_LABELS: Record<number, string> = {
